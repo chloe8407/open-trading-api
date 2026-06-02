@@ -1,4 +1,4 @@
-# Samsung Auto Trader (모의투자)
+<img width="1136" height="131" alt="스크린샷 2026-06-02 131028" src="https://github.com/user-attachments/assets/0e9f3886-6773-4103-946f-a7287bc28818" /># Samsung Auto Trader (모의투자)
 
 한국투자증권 KIS Open API를 활용한 삼성전자(005930) 자동매매 시스템입니다.
 모의투자 환경에서만 동작하며, REST API 폴링 방식으로 구현되었습니다.
@@ -149,13 +149,6 @@ python -c "from auth import AuthManager; from api_client import ApiClient; from 
 - **토큰 캐싱**: 동일 발급일 내 토큰 재사용으로 토큰 발급 한도 회피
 - **HTTP 재시도 분리**: 5xx 서버 오류만 재시도, 4xx 클라이언트 오류는 즉시 반환
 
-## 운영 시 주의사항
-
-- GitHub Codespace는 브라우저 탭을 닫고 일정 시간이 지나면 자동으로 중지됩니다.
-  메인 루프 운영 중에는 탭을 열어두거나, 장기 운영 시 별도의 클라우드 환경(VM 등)으로 이전이 필요합니다.
-- 모의투자 API는 초당 호출 횟수 제한이 실전보다 엄격합니다 (`EGW00201` 오류 발생 가능).
-- `token_cache.json`은 액세스 토큰을 저장하므로 `.gitignore`에 포함되어야 하며, 외부 공유 금지.
-
 ## 다음 단계
 
 위 Step 1~3이 모두 성공하면, **평일 장 시간(09:10~15:30 KST)** 에 다음을 진행합니다.
@@ -185,8 +178,18 @@ python -c "from auth import AuthManager; from api_client import ApiClient; from 
 토큰 발급, 시세 조회, 잔고 조회 모두 정상 동작 확인.
 
 - **토큰**: `Reusing token from cache file` — 토큰 캐싱 정상 동작
+
+  <img width="1307" height="66" alt="스크린샷 2026-06-02 130608" src="https://github.com/user-attachments/assets/e233b6b6-9da4-4118-91b8-b35410e5c35a" />
+
 - **시세**: `PriceQuote(symbol='005930', bid_price=..., ask_price=..., last_price=...)`
+
+<img width="1313" height="352" alt="스크린샷 2026-06-02 130628" src="https://github.com/user-attachments/assets/cb6567c9-c797-4f2a-bad9-470636199f83" />
+
 - **잔고**: `AccountSnapshot(available_cash=10000000.0, holdings=[])` — 모의투자 시드 1천만원 확인
+
+<img width="1306" height="65" alt="스크린샷 2026-06-02 130911" src="https://github.com/user-attachments/assets/48b3cb55-a880-47da-aa90-024f17da9c3d" />
+
+*Step 1~3 사전 점검 — 토큰 발급, 시세 조회, 잔고 조회가 모두 정상 동작하며 모의투자 시드 1천만원이 확인됨.*
 
 ### 첫 주문 테스트 (test_order.py)
 
@@ -199,6 +202,8 @@ python -c "from auth import AuthManager; from api_client import ApiClient; from 
 주문번호: None
 메시지: 모의투자 매수주문이 완료 되었습니다.
 ```
+
+<img width="1136" height="131" alt="스크린샷 2026-06-02 131028" src="https://github.com/user-attachments/assets/194e5a8f-c96e-451b-a45e-b8f954f9a394" />
 
 → 한투 모의투자 서버에서 정상 접수 확인.
 
@@ -217,6 +222,9 @@ python -c "from auth import AuthManager; from api_client import ApiClient; from 
 13:16:21  No balance or holding change detected after orders
 13:16:21  Sleeping for 300 seconds before next cycle
 ```
+<img width="1080" height="327" alt="스크린샷 2026-06-02 131648" src="https://github.com/user-attachments/assets/43640c5a-3c41-48b3-9d10-15da730578b4" />
+
+*자동매매 시스템 첫 사이클 실행 로그 — 토큰 캐시 재사용, 시세 조회, 잔고 확인, 매수 주문 접수, 보유 0주로 매도 스킵까지 의도된 흐름대로 동작.*
 
 확인 사항:
 - 토큰 캐시 재사용 (불필요한 발급 없음)
@@ -232,6 +240,9 @@ python -c "from auth import AuthManager; from api_client import ApiClient; from 
 13:21:26  Order cooldown active, skipping new orders
 13:21:29  Sleeping for 300 seconds before next cycle
 ```
+<img width="1000" height="215" alt="스크린샷 2026-06-02 132205" src="https://github.com/user-attachments/assets/d4d5ceed-35dd-43ec-b396-f5a12887ed44" />
+
+*두 번째 사이클 — 15분 주문 쿨다운이 적용되어 신규 주문이 자동으로 스킵됨. 모의투자 API 호출 폭주를 방지하는 안전장치가 정상 작동.*
 
 → 15분 주문 쿨다운 정상 동작. 모의투자 API 호출 폭주 방지.
 
@@ -239,6 +250,11 @@ python -c "from auth import AuthManager; from api_client import ApiClient; from 
 
 세 번째 사이클(13:26)에서 `account.py`의 `_to_int` 메서드 누락으로 `AttributeError` 발생.
 시스템이 크래시하지 않고 `try/except`로 예외를 잡아 다음 사이클로 정상 진행함을 확인.
+
+<img width="1023" height="102" alt="스크린샷 2026-06-02 132746" src="https://github.com/user-attachments/assets/6140fd63-1064-412a-97bc-d8605f69b457" />
+
+*세 번째 사이클에서 발생한 AttributeError — try/except로 격리되어 시스템 크래시 없이 다음 사이클로 정상 진행됨.*
+
 
 수정 후 잔고 조회 결과:
 
@@ -271,6 +287,9 @@ AccountSnapshot(
 13:35:29  WARNING - API request failed (attempt 1/2): POST .../order-cash status=500
 13:35:34  Sell order result success=True
 ```
+<img width="1307" height="410" alt="스크린샷 2026-06-02 133543" src="https://github.com/user-attachments/assets/49c98678-850d-4d53-a4ed-37e1eb6a952e" />
+
+*보유 1주 감지 후 매수와 매도를 동시에 발사. 매도 1차 시도에서 500 에러가 발생했으나 재시도 로직이 자동 발동하여 2차 시도에서 정상 접수됨.*
 
 확인 사항:
 - 보유 1주 감지하여 매도 주문 정상 발사
@@ -289,8 +308,27 @@ AccountSnapshot(
 13:51:15  Submitting sell order 1 005930 @ 354500
 13:51:16  Sell order result success=True
 ```
+<img width="1292" height="268" alt="스크린샷 2026-06-02 134646" src="https://github.com/user-attachments/assets/a5b0f24d-b082-4441-bed9-70b2a36c5e7d" />
+<img width="1085" height="322" alt="스크린샷 2026-06-02 135135" src="https://github.com/user-attachments/assets/09218ffa-a4f1-4899-8df1-9fb97c749d97" />
+
+*직전 사이클 보유 2주에서 1주로 감소 — 매도 주문(353,000원)이 시세 상승으로 체결되었음을 확인. 자동매매 시스템의 양방향 동작이 실제 시장 데이터로 검증됨.*
 
 직전 사이클 보유 2주에서 1주로 감소 → 매도 주문(353,000원)이 시세 상승에 따라 체결됨을 확인.
+
+#### 체결 자동 감지 (14:06)
+
+```
+05:06:48  Balance snapshot for 005930 holdings=[1]
+05:06:48  Submitting buy order 1 005930 @ 354500
+05:06:49  Buy order result success=True
+05:06:49  Submitting sell order 1 005930 @ 356500
+05:06:50  Sell order result success=True
+05:06:52  Holdings before=1 after=2
+05:06:52  Execution appears to have occurred or account was updated
+```
+<img width="1087" height="306" alt="스크린샷 2026-06-02 141217" src="https://github.com/user-attachments/assets/81dcca00-8409-437f-b554-70f89d7b6083" />
+
+*주문 전후 보유 수량 변화를 감지하여 체결 발생을 자동으로 로그에 기록. 동일 사이클 내에서도 직전 미체결 주문이 체결됨을 시스템이 정확히 식별.*
 
 #### 자동 종료 (15:30)
 
@@ -298,10 +336,16 @@ AccountSnapshot(
 15:30:00  Trading window closed during execution
 15:30:00  Auto trader stopped
 ```
+<img width="722" height="52" alt="스크린샷 2026-06-02 153310" src="https://github.com/user-attachments/assets/2da35828-9d5d-4995-babd-3c3dd1839ffb" />
+
+*UTC 06:30:00 = KST 15:30:00 — 한국 장 마감 시각에 정확히 자동 종료. KST 타임존 처리 로직(zoneinfo.ZoneInfo("Asia/Seoul"))이 의도대로 동작함을 검증.*
 
 → KST 타임존(`zoneinfo.ZoneInfo("Asia/Seoul")`) 기반 시간 체크가 정확히 동작. 한국 장 마감 시각에 정확히 자동 종료.
 
 ### 최종 결과 (한국투자증권 모의투자 시스템)
+
+<img width="1232" height="512" alt="스크린샷 2026-06-02 153739" src="https://github.com/user-attachments/assets/cb1d9e89-1390-43d9-a947-47f03b686b9a" />
+
 
 운영 종료 시점 한투 모의투자 계좌 잔고:
 
