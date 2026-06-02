@@ -1,4 +1,3 @@
-<img width="1136" height="131" alt="스크린샷 2026-06-02 131028" src="https://github.com/user-attachments/assets/0e9f3886-6773-4103-946f-a7287bc28818" />
 # Samsung Auto Trader (모의투자)
 
 한국투자증권 KIS Open API를 활용한 삼성전자(005930) 자동매매 시스템입니다.
@@ -152,7 +151,7 @@ python -c "from auth import AuthManager; from api_client import ApiClient; from 
 
 ## 다음 단계
 
-위 Step 1~3이 모두 성공하면, **평일 장 시간(09:10~15:30 KST)** 에 다음을 진행합니다.
+위 Step 1-3이 모두 성공하면, **평일 장 시간(09:10~15:30 KST)** 에 다음을 진행합니다.
 
 1. 실제 주문 1회 수동 테스트 (체결되지 않을 가격으로)
 2. 한국투자증권 모의투자 앱/홈페이지에서 주문내역 확인
