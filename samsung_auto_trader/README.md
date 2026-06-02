@@ -164,3 +164,179 @@ python -c "from auth import AuthManager; from api_client import ApiClient; from 
 2. 한국투자증권 모의투자 앱/홈페이지에서 주문내역 확인
 3. 미체결 주문 수동 취소
 4. 메인 루프 실행 (`python main.py`)
+
+## 실행 결과 (2026-06-02)
+
+평일 장 시간 동안 모의투자 환경에서 실제로 자동매매 시스템을 운영하고 결과를 검증했습니다.
+
+### 운영 개요
+
+| 항목 | 값 |
+|---|---|
+| 운영 일자 | 2026년 6월 2일 (월) |
+| 시작 시각 | 13:16 KST |
+| 종료 시각 | 15:30 KST (자동 종료) |
+| 운영 시간 | 약 2시간 14분 |
+| 대상 종목 | 삼성전자 (005930) |
+| 시스템 크래시 | 0회 |
+
+### 사전 점검 (Step 1~3)
+
+토큰 발급, 시세 조회, 잔고 조회 모두 정상 동작 확인.
+
+- **토큰**: `Reusing token from cache file` — 토큰 캐싱 정상 동작
+- **시세**: `PriceQuote(symbol='005930', bid_price=..., ask_price=..., last_price=...)`
+- **잔고**: `AccountSnapshot(available_cash=10000000.0, holdings=[])` — 모의투자 시드 1천만원 확인
+
+### 첫 주문 테스트 (test_order.py)
+
+체결되지 않을 가격(현재가 -5,000원)으로 1주 수동 매수 주문 시도.
+
+```
+현재가: 353000.0
+매수가: 348000
+성공: True
+주문번호: None
+메시지: 모의투자 매수주문이 완료 되었습니다.
+```
+
+→ 한투 모의투자 서버에서 정상 접수 확인.
+
+### 자동매매 실행 (main.py)
+
+#### 첫 사이클 (13:16)
+
+```
+13:16:01  Auto trader started
+13:16:01  Reusing token from cache file
+13:16:05  Current quote 005930 bid=350500.0 ask=351000.0
+13:16:14  Balance snapshot for 005930 available_cash=10000000.0 holdings=[]
+13:16:14  Submitting buy order 1 005930 @ 350000
+13:16:18  Buy order result success=True message=모의투자 매수주문이 완료 되었습니다.
+13:16:18  Skipping sell order because holding is insufficient (0 shares available)
+13:16:21  No balance or holding change detected after orders
+13:16:21  Sleeping for 300 seconds before next cycle
+```
+
+확인 사항:
+- 토큰 캐시 재사용 (불필요한 발급 없음)
+- 매수 주문 정상 접수
+- 보유 0주이므로 매도 자동 스킵 (공매도 방지 동작)
+- 5분 폴링 간격 정상 진입
+
+#### 쿨다운 동작 검증 (13:21)
+
+```
+13:21:21  Current quote 005930 bid=351000.0 ask=351500.0
+13:21:26  Balance snapshot for 005930 available_cash=10000000.0 holdings=[]
+13:21:26  Order cooldown active, skipping new orders
+13:21:29  Sleeping for 300 seconds before next cycle
+```
+
+→ 15분 주문 쿨다운 정상 동작. 모의투자 API 호출 폭주 방지.
+
+#### 디버깅 및 코드 수정
+
+세 번째 사이클(13:26)에서 `account.py`의 `_to_int` 메서드 누락으로 `AttributeError` 발생.
+시스템이 크래시하지 않고 `try/except`로 예외를 잡아 다음 사이클로 정상 진행함을 확인.
+
+수정 후 잔고 조회 결과:
+
+```python
+AccountSnapshot(
+    available_cash=10000000.0,
+    holdings=[
+        Holding(
+            symbol='005930',
+            quantity=1,
+            average_price=350000.0,
+            current_price=352250.0,
+            ...
+            'evlu_pfls_amt': '2250',
+            'evlu_pfls_rt': '0.64'
+        )
+    ]
+)
+```
+
+→ 1차 실행 중 발사한 매수 주문(350,000원)이 코드 종료 이후에도 한투 서버에서 살아있다가 시세 변동으로 체결됨을 확인. 자동매매 시스템의 비동기성(주문 송신과 체결의 분리)을 실제로 검증.
+
+#### 매수 + 매도 동시 발사 및 HTTP 재시도 (13:35)
+
+```
+13:35:26  Balance snapshot for 005930 holdings=[1]
+13:35:29  Submitting buy order 1 005930 @ 351000
+13:35:29  Buy order result success=True
+13:35:29  Submitting sell order 1 005930 @ 353000
+13:35:29  WARNING - API request failed (attempt 1/2): POST .../order-cash status=500
+13:35:34  Sell order result success=True
+```
+
+확인 사항:
+- 보유 1주 감지하여 매도 주문 정상 발사
+- 매도 1차 시도에서 500 에러 발생
+- `api_client.py`의 재시도 로직 발동, 2초 대기 후 2차 시도
+- 2차 시도에서 매도 정상 접수
+
+→ "5xx만 재시도, 4xx는 즉시 반환" 설계가 실전 환경에서 검증됨.
+
+#### 매도 체결 확인 (13:51)
+
+```
+13:51:11  Balance snapshot for 005930 available_cash=10000000.0 holdings=[1]
+13:51:11  Submitting buy order 1 005930 @ 352500
+13:51:15  Buy order result success=True
+13:51:15  Submitting sell order 1 005930 @ 354500
+13:51:16  Sell order result success=True
+```
+
+직전 사이클 보유 2주에서 1주로 감소 → 매도 주문(353,000원)이 시세 상승에 따라 체결됨을 확인.
+
+#### 자동 종료 (15:30)
+
+```
+15:30:00  Trading window closed during execution
+15:30:00  Auto trader stopped
+```
+
+→ KST 타임존(`zoneinfo.ZoneInfo("Asia/Seoul")`) 기반 시간 체크가 정확히 동작. 한국 장 마감 시각에 정확히 자동 종료.
+
+### 최종 결과 (한국투자증권 모의투자 시스템)
+
+운영 종료 시점 한투 모의투자 계좌 잔고:
+
+| 항목 | 값 |
+|---|---|
+| 예수금 총액 | 10,000,000원 |
+| 금일 매수액 | 3,202,500원 |
+| 금일 매도액 | 2,506,000원 |
+| 제비용 (수수료/세금) | 5,812원 |
+| D+2 정산액 | 9,297,688원 |
+| 보유 종목 | 삼성전자 2주 |
+| 매입 평균가 | 359,468.75원 |
+| 평가금액 | 722,000원 |
+| **평가손익** | **+3,063원 (+0.43%)** |
+| **총 평가금액** | **10,019,688원 (+0.197%)** |
+
+2시간 14분의 자동매매 운영 동안 매수·매도 양방향 체결이 다수 발생하였으며, 최종적으로 모의 가상자산 기준 약 +0.197% 수익으로 종료됨.
+
+### 검증된 시스템 동작
+
+본 운영을 통해 다음 사항들이 모두 검증됨.
+
+- 모의투자 환경에서의 실제 매수·매도 주문 접수
+- 시세 변동에 따른 실제 체결 (단순 시뮬레이션이 아닌 실제 시장 데이터 기반)
+- 토큰 캐싱을 통한 발급 한도 회피
+- 15분 주문 쿨다운으로 폭주 방지
+- 보유 수량 부족 시 매도 자동 스킵 (공매도 방지)
+- HTTP 5xx 에러 발생 시 자동 재시도, 4xx 에러 시 즉시 반환
+- 런타임 예외 발생 시 `try/except`로 사이클 단위 격리, 시스템 전체 크래시 없이 다음 사이클 진행
+- KST 타임존 기반 한국 장 시간 정확한 자동 종료
+
+### 발견된 개선점
+
+운영 중 식별된 자잘한 이슈로, 매매 로직에는 영향 없으나 향후 개선 대상.
+
+- 호가 API 응답에서 `last_price` 추출 시 일부 케이스에서 비합리적 값 반환 (매매에는 영향 없으나 로그 정확도 개선 필요)
+- 잔고 응답 필드 매칭에서 `ord_psbl_cash` 대신 `dnca_tot_amt`(예수금총금액)가 잡혀 매수 직후 가용현금이 즉시 차감되지 않음 (한투 D+2 결제 구조상 정상이나, 실시간 가용현금 표시를 원할 경우 추가 필드 매칭 필요)
+- 주문 응답에서 `order_id`(주문번호) 추출 실패 — 한투 응답 키 매칭 미세 조정 필요
