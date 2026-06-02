@@ -1,4 +1,5 @@
-<img width="1136" height="131" alt="스크린샷 2026-06-02 131028" src="https://github.com/user-attachments/assets/0e9f3886-6773-4103-946f-a7287bc28818" /># Samsung Auto Trader (모의투자)
+<img width="1136" height="131" alt="스크린샷 2026-06-02 131028" src="https://github.com/user-attachments/assets/0e9f3886-6773-4103-946f-a7287bc28818" />
+# Samsung Auto Trader (모의투자)
 
 한국투자증권 KIS Open API를 활용한 삼성전자(005930) 자동매매 시스템입니다.
 모의투자 환경에서만 동작하며, REST API 폴링 방식으로 구현되었습니다.
@@ -309,6 +310,7 @@ AccountSnapshot(
 13:51:16  Sell order result success=True
 ```
 <img width="1292" height="268" alt="스크린샷 2026-06-02 134646" src="https://github.com/user-attachments/assets/a5b0f24d-b082-4441-bed9-70b2a36c5e7d" />
+
 <img width="1085" height="322" alt="스크린샷 2026-06-02 135135" src="https://github.com/user-attachments/assets/09218ffa-a4f1-4899-8df1-9fb97c749d97" />
 
 *직전 사이클 보유 2주에서 1주로 감소 — 매도 주문(353,000원)이 시세 상승으로 체결되었음을 확인. 자동매매 시스템의 양방향 동작이 실제 시장 데이터로 검증됨.*
